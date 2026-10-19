@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorio Bioinformático de Cultivo - Práctica 05</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Librería Chart.js para analítica de datos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <!-- HUD Izquierdo: Ficha y KPIs Bioinformáticos -->
+    <aside id="info-panel" class="hud-card">
+        <div class="card-header">
+            <h3>🌱 Ficha y KPIs Bioinformáticos</h3>
+            <span class="badge" id="lbl-modelo">Logístico</span>
+        </div>
+        
+        <div class="kpi-grid">
+            <div class="metric-box"><span class="metric-label">Día / Tick:</span> <strong id="kpi-tick">0</strong></div>
+            <div class="metric-box"><span class="metric-label">Altura N(t):</span> <strong id="kpi-altura">0.00 u</strong></div>
+            <div class="metric-box"><span class="metric-label">Biomasa Est.:</span> <strong id="kpi-biomasa">0.00 g</strong></div>
+            <div class="metric-box"><span class="metric-label">ICR:</span> <strong id="kpi-icr">0.00</strong></div>
+            <div class="metric-box"><span class="metric-label">Estrés Térmico:</span> <strong id="kpi-estres-t">0 %</strong></div>
+            <div class="metric-box"><span class="metric-label">Estrés Hídrico:</span> <strong id="kpi-estres-h">0 %</strong></div>
+        </div>
+
+        <div class="recommendation-box" style="margin-top: 10px;">
+            <span class="counter-title">💡 Próxima Acción Recomendada:</span>
+            <p id="kpi-recomendacion" class="desc-text" style="color: #4ade80;">Condiciones óptimas de desarrollo.</p>
+        </div>
+
+        <p id="hint-text" style="margin-top: 8px;">Haz clic sobre una estructura para examinarla.</p>
+        <div id="plant-data" class="hidden">
+            <div class="data-row"><strong>Estructura:</strong> <span id="part-name">-</span></div>
+            <div class="data-row"><strong>Especie:</strong> <span id="part-especie">-</span></div>
+            <div class="data-row"><strong>Geometría:</strong> <span id="part-geo">-</span></div>
+            <div class="data-row"><strong>Crecimiento Local:</strong> <span id="part-growth">-</span></div>
+        </div>
+    </aside>
+
+    <!-- HUD Derecho: Catálogo REST y Parámetros -->
+    <aside id="status-panel" class="hud-card">
+        <div class="card-header">
+            <h3>⚙️ Configuración de Simulación</h3>
+        </div>
+        
+        <div class="control-group">
+            <label for="select-especie" class="metric-label">Especie (MySQL):</label>
+            <select id="select-especie" class="select-input"></select>
+        </div>
+
+        <div class="control-group" style="margin-top: 8px;">
+            <label for="select-modelo" class="metric-label">Modelo Matemático:</label>
+            <select id="select-modelo" class="select-input">
+                <option value="logistico">Logístico (Verhulst)</option>
+                <option value="gompertz">Gompertz</option>
+                <option value="exponencial">Exponencial</option>
+                <option value="lineal">Lineal</option>
+            </select>
+        </div>
+
+        <div class="status-row" style="margin-top: 12px;"><span>Días para Cosecha:</span> <strong id="kpi-cosecha">90 días</strong></div>
+        <div class="status-row"><span>Modo Escenario:</span> <strong id="kpi-modo-ab">Estándar</strong></div>
+    </aside>
+
+    <!-- Toolbar Inferior -->
+    <nav id="controls-toolbar" class="hud-card">
+        <div class="sliders-grid">
+            <div class="slider-group">
+                <label for="slider-branches">🌿 Ramas: <span id="val-branches">3</span></label>
+                <input type="range" id="slider-branches" min="1" max="5" step="1" value="3">
+            </div>
+            <div class="slider-group">
+                <label for="slider-temp">🌡️ Temp (°C): <span id="lbl-temp">20 °C</span></label>
+                <input type="range" id="slider-temp" min="10" max="40" step="1" value="20">
+            </div>
+            <div class="slider-group">
+                <label for="slider-humedad">💧 Humedad Suelo (%): <span id="lbl-humedad">60 %</span></label>
+                <input type="range" id="slider-humedad" min="10" max="100" step="1" value="60">
+            </div>
+            <div class="slider-group">
+                <label for="slider-wind">💨 Viento: <span id="val-wind">1.0</span></label>
+                <input type="range" id="slider-wind" min="0.0" max="3.0" step="0.1" value="1.0">
+            </div>
+        </div>
+
+        <div class="buttons-row" style="margin-top: 8px;">
+            <button id="btn-toggle-sim" class="btn">⏸️ Pausar</button>
+            <button id="btn-reset-growth" class="btn">🔄 Reiniciar</button>
+            <button id="btn-toggle-ab" class="btn btn-exp">⚖️ Comparar A/B</button>
+            <button id="btn-save-sim" class="btn btn-exp">💾 Guardar en DB</button>
+            <button id="btn-open-charts" class="btn btn-chart">📈 Curvas & Reportes</button>
+        </div>
+    </nav>
+
+    <!-- Modal de Gráficas y Reportes -->
+    <div id="chart-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📈 Curvas de Crecimiento y Analítica A/B</h2>
+                <span class="close-modal" id="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <canvas id="growthChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>
